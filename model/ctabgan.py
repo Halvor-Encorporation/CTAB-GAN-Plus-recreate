@@ -7,6 +7,8 @@ import time
 from model.pipeline.data_preparation import DataPrep
 from model.synthesizer.ctabgan_synthesizer import CTABGANSynthesizer
 
+from model.pipeline2.data_preparation import DataPrep as DataPrep2
+
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -41,15 +43,25 @@ class CTABGAN():
         
         start_time = time.time()
         self.data_prep = DataPrep(self.raw_df,self.categorical_columns,self.log_columns,self.mixed_columns,self.general_columns,self.non_categorical_columns,self.integer_columns,self.problem_type,self.test_ratio)
-        self.synthesizer.fit(train_data=self.data_prep.df, categorical = self.data_prep.column_types["categorical"], mixed = self.data_prep.column_types["mixed"],
-        general = self.data_prep.column_types["general"], non_categorical = self.data_prep.column_types["non_categorical"], type=self.problem_type,epochs=epochs)
+        self.data_prep2 = DataPrep2(self.raw_df,self.categorical_columns,self.log_columns)
+        self.prepared_data = self.data_prep2.preprocesses_transform(self.raw_df)
+
+        self.synthesizer.fit(train_data=self.prepared_data, 
+                     categorical=self.categorical_columns, 
+                     mixed=self.mixed_columns, 
+                     general=self.general_columns, 
+                     non_categorical=self.non_categorical_columns, 
+                     type=self.problem_type, 
+                     epochs=epochs)
         end_time = time.time()
         print('Finished training in',end_time-start_time," seconds.")
 
 
-    def generate_samples(self):
+    def generate_samples(self,n=1000):
         
-        sample = self.synthesizer.sample(len(self.raw_df)) 
-        sample_df = self.data_prep.inverse_prep(sample)
+        sample_transformed = self.synthesizer.sample(n)#self.synthesizer.sample(n, column_index, column_value_index)
+        sample_transformed = pd.DataFrame(sample_transformed, columns=self.prepared_data.columns)
         
-        return sample_df
+        sample = self.data_prep2.preprocesses_inverse_transform(sample_transformed)
+        
+        return sample
