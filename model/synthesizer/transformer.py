@@ -63,21 +63,14 @@ class DataTransformer():
         for col in self.train_data:
             column = self.train_data[col]
             if col in self.categorical_columns:
-                if col in self.non_categorical_columns:
-                    meta.append({
-                      "name": col,
-                      "type": "continuous",
-                      "min": column.min(),
-                      "max": column.max(),
-                    })
-                else:
-                    mapper = column.value_counts().index.tolist()
-                    meta.append({
-                        "name": col,
-                        "type": "categorical",
-                        "size": len(mapper),
-                        "i2s": mapper
-                    })
+                
+                mapper = column.value_counts().index.tolist()
+                meta.append({
+                    "name": col,
+                    "type": "categorical",
+                    "size": len(mapper),
+                    "i2s": mapper
+                })
 
             elif col in self.mixed_columns.keys():
                 meta.append({
@@ -108,7 +101,7 @@ class DataTransformer():
         self.filter_arr = []
         for id_, info in enumerate(self.meta):
             if info['type'] == "continuous":
-                if id_ not in self.general_columns:
+                if info["name"] not in self.general_columns:
                   gm = BayesianGaussianMixture(
                       n_components = self.n_clusters, 
                       weight_concentration_prior_type='dirichlet_process',
@@ -188,9 +181,8 @@ class DataTransformer():
             current = data[:, id_]
             if info['type'] == "continuous":
                 if info["name"] not in self.general_columns:
-                    transformer = info['transformer'] 
-                    features, re_ordered_phot = transformer.transform(current)
-                    """
+                    
+                    
                     current = current.reshape([-1, 1])
                     means = self.model[id_].means_.reshape((1, self.n_clusters))
                     stds = np.sqrt(self.model[id_].covariances_).reshape((1, self.n_clusters))
@@ -228,8 +220,8 @@ class DataTransformer():
                     self.ordering.append(largest_indices)
                     for id,val in enumerate(largest_indices):
                         re_ordered_phot[:,id] = probs_onehot[:,val]
-                    """
-                    self.ordering.append(None) # append to keep the same length as the meta list
+                    
+                    
                     values += [features, re_ordered_phot]
 
                     
@@ -351,9 +343,8 @@ class DataTransformer():
         for id_, info in enumerate(self.meta):
             if info['type'] == "continuous":
                 if info["name"] not in self.general_columns:
-                    transformer = info['transformer']
-                    tmp, inv_ids = transformer.inverse_transform(data,st)
-                    """
+                
+                    
                     u = data[:, st]
                     v = data[:, st + 1:st + 1 + np.sum(self.components[id_])]
                     order = self.ordering[id_] 
@@ -379,10 +370,10 @@ class DataTransformer():
                     for idx,val in enumerate(tmp):
                         if (val < info["min"]) | (val > info['max']):
                             invalid_ids.append(idx)
-                    """
+                    
                 
                     data_t[:, id_] = tmp
-                    invalid_ids.extend(inv_ids)
+                   
 
                 else:
                   u = data[:, st]
