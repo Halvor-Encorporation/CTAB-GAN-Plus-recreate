@@ -56,9 +56,50 @@ class DataTransformer():
 
         return meta
 
+    def get_metadata2(self):
+        
+        meta = []
+    
+        for col in self.train_data:
+            column = self.train_data[col]
+            if col in self.categorical_columns:
+                if col in self.non_categorical_columns:
+                    meta.append({
+                      "name": col,
+                      "type": "continuous",
+                      "min": column.min(),
+                      "max": column.max(),
+                    })
+                else:
+                    mapper = column.value_counts().index.tolist()
+                    meta.append({
+                        "name": col,
+                        "type": "categorical",
+                        "size": len(mapper),
+                        "i2s": mapper
+                    })
+
+            elif col in self.mixed_columns.keys():
+                meta.append({
+                    "name": col,
+                    "type": "mixed",
+                    "min": column.min(),
+                    "max": column.max(),
+                    "modal": self.mixed_columns[col]
+                })
+            else:
+                meta.append({
+                    "name": col,
+                    "type": "continuous",
+                    "min": column.min(),
+                    "max": column.max(),
+                })            
+
+        return meta
+
     def fit(self):
         data = self.train_data.values
-        self.meta = self.get_metadata()
+        self.meta = self.get_metadata2()
         model = []
         self.ordering = []
         self.output_info = []

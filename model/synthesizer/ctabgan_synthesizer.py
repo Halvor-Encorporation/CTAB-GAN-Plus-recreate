@@ -369,12 +369,13 @@ class CTABGANSynthesizer:
             if problem_type:
                 target_index = train_data.columns.get_loc(type[problem_type])
 
-        self.transformer = DataTransformer2(train_data, categorical_list=categorical, mixed_dict=mixed, general_list=general,truncated_gaussian_columns={})
-
-        output_info = self.transformer.get_output_info_flat()
-        train_data = self.transformer.transform(train_data)
+        self.transformer = DataTransformer(train_data, categorical_list=categorical, mixed_dict=mixed, general_list=general)
+        self.transformer.fit() 
+        #output_info = self.transformer.get_output_info_flat()
+        output_info = self.transformer.output_info
+        train_data = self.transformer.transform(train_data.values)
         data_sampler = Sampler(train_data, output_info)
-        data_dim = self.transformer.get_output_dim()
+        data_dim = self.transformer.output_dim
         self.cond_generator = Cond(train_data, output_info)
         		
         sides = [4, 8, 16, 24, 32, 64]
@@ -554,7 +555,7 @@ class CTABGANSynthesizer:
         
         self.generator.eval()
 
-        output_info = self.transformer.get_output_info_flat()
+        output_info = self.transformer.output_info
         steps = n // self.batch_size + 1
         
         data = []
