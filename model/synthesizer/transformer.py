@@ -13,71 +13,25 @@ class DataTransformer():
         self.categorical_columns= categorical_list
         self.mixed_columns= mixed_dict
         self.general_columns = general_list
-        self.non_categorical_columns= non_categorical_list
         
+        
+   
+
     def get_metadata(self):
-        
-        meta = []
-    
-        for index in range(self.train_data.shape[1]):
-            column = self.train_data.iloc[:,index]
-            if index in self.categorical_columns:
-                if index in self.non_categorical_columns:
-                    meta.append({
-                      "name": index,
-                      "type": "continuous",
-                      "min": column.min(),
-                      "max": column.max(),
-                    })
-                else:
-                    mapper = column.value_counts().index.tolist()
-                    meta.append({
-                        "name": index,
-                        "type": "categorical",
-                        "size": len(mapper),
-                        "i2s": mapper
-                    })
-
-            elif index in self.mixed_columns.keys():
-                meta.append({
-                    "name": index,
-                    "type": "mixed",
-                    "min": column.min(),
-                    "max": column.max(),
-                    "modal": self.mixed_columns[index]
-                })
-            else:
-                meta.append({
-                    "name": index,
-                    "type": "continuous",
-                    "min": column.min(),
-                    "max": column.max(),
-                })            
-
-        return meta
-
-    def get_metadata2(self):
         
         meta = []
     
         for col in self.train_data:
             column = self.train_data[col]
             if col in self.categorical_columns:
-                if col in self.non_categorical_columns:
-                    meta.append({
-                      "name": col,
-                      "type": "continuous",
-                      "min": column.min(),
-                      "max": column.max(),
-                    })
-                else:
-                    mapper = column.value_counts().index.tolist()
-                    meta.append({
-                        "name": col,
-                        "type": "categorical",
-                        "size": len(mapper),
-                        "i2s": mapper
-                    })
+                
+                mapper = column.value_counts().index.tolist()
+                meta.append({
+                    "name": col,
+                    "type": "categorical",
+                    "size": len(mapper),
+                    "i2s": mapper
+                })
 
             elif col in self.mixed_columns.keys():
                 meta.append({
@@ -99,7 +53,7 @@ class DataTransformer():
 
     def fit(self):
         data = self.train_data.values
-        self.meta = self.get_metadata2()
+        self.meta = self.get_metadata()
         model = []
         self.ordering = []
         self.output_info = []
@@ -233,9 +187,7 @@ class DataTransformer():
                   
                   self.ordering.append(None)
                   
-                  if id_ in self.non_categorical_columns:
-                    info['min'] = -1e-3
-                    info['max'] = info['max'] + 1e-3
+                  
                     
                   current = (current - (info['min'])) / (info['max'] - info['min'])
                   current = current * 2 - 1 
@@ -372,10 +324,7 @@ class DataTransformer():
                      if (val < info["min"]) | (val > info['max']):
                          invalid_ids.append(idx)
                   
-                  if id_ in self.non_categorical_columns:
-                    
-                    tmp = np.round(tmp)
-                  
+                
                   data_t[:, id_] = tmp
 
                 else:
@@ -383,9 +332,8 @@ class DataTransformer():
                   u = (u + 1) / 2
                   u = np.clip(u, 0, 1)
                   u = u * (info['max'] - info['min']) + info['min']
-                  if id_ in self.non_categorical_columns:
-                    data_t[:, id_] = np.round(u)
-                  else: data_t[:, id_] = u
+                  
+                  data_t[:, id_] = u
 
                   st += 1
 
