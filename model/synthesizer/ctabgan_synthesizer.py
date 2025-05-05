@@ -11,6 +11,9 @@ from model.synthesizer.transformer import ImageTransformer,DataTransformer
 from model.privacy_utils.rdp_accountant import compute_rdp, get_privacy_spent
 from tqdm import tqdm
 
+from ..privacy_utils.DP_controller import DP_controller
+
+
 from model.transformer2.transformer import DataTransformer as DataTransformer2
 
 class Classifier(Module):
@@ -359,7 +362,7 @@ class CTABGANSynthesizer:
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def fit(self, train_data=pd.DataFrame, categorical=[], mixed={}, general=[], non_categorical=[], type={},epochs=100):
+    def fit(self, train_data=pd.DataFrame, dp_constraints={}, categorical=[], mixed={}, general=[], non_categorical=[], type={},epochs=100,verbose=True):
 
         self.epochs = epochs
         problem_type = None
@@ -423,6 +426,31 @@ class CTABGANSynthesizer:
         ci = 5
         
         steps_per_epoch = max(1, len(train_data) // self.batch_size)
+        total_steps = steps_per_epoch * epochs * ci
+
+        self.private = any(value is not None for value in dp_constraints.values())
+        
+        if self.private:
+             
+            self.micro_batch_size = self.batch_size
+            
+            self.dp_controller = DP_controller(
+                        data_size=train_data.shape[0], 
+                        batch_size=self.batch_size, 
+                        total_steps=total_steps, 
+                        epsilon_budget=dp_constraints.get('epsilon_budget',None), 
+                        delta=dp_constraints.get('delta',None), 
+                        clip_coeff=dp_constraints.get('clip_coeff',1), 
+                        sigma=dp_constraints.get('sigma',None), 
+                        device=self.device, 
+                        verbose=verbose)
+
+            self.clip_coeff = self.dp_controller.get_clip_coeff()
+            self.sigma = self.dp_controller.get_sigma()
+
+
+
+
         for i in tqdm(range(self.epochs)):
             for id_ in range(steps_per_epoch):
 				
@@ -459,8 +487,27 @@ class CTABGANSynthesizer:
                     d_real,_ = discriminator(real_cat_d)
                     
 
-                    d_real = -torch.mean(d_real)
-                    d_real.backward() 
+                    if self.private: #  IF private we have to apply the gradient clipping and the noise addition
+
+                        clipped_grads = {
+                            name: torch.zeros_like(param) for name, param in discriminator.named_parameters()}
+
+                        for k in range(int(d_real.size(0) / self.micro_batch_size)):
+                            err_micro = -1*d_real[k * self.micro_batch_size: (k + 1) * self.micro_batch_size].mean(0).view(1)
+                            err_micro.backward(retain_graph=True)
+                            torch.nn.utils.clip_grad_norm_(discriminator.parameters(), self.clip_coeff)
+                            for name, param in discriminator.named_parameters():
+                                clipped_grads[name] += param.grad
+                            discriminator.zero_grad()
+
+                        for name, param in discriminator.named_parameters():
+                            param.grad = (clipped_grads[name] + torch.FloatTensor(
+                                clipped_grads[name].size()).normal_(0, self.sigma * self.clip_coeff).to(self.device)) / (
+                                                     d_real.size(0) / self.micro_batch_size)
+                        steps += 1
+                    else: 
+                        d_real = -torch.mean(d_real)
+                        d_real.backward() 
                     
 
                     d_fake,_ = discriminator(fake_cat_d)
@@ -548,6 +595,10 @@ class CTABGANSynthesizer:
                     optimizerC.step()
                                 
             epoch += 1
+            if self.private:
+                
+                epsilon = self.dp_controller.get_spent_privacy(steps)
+                if verbose: print("Epoch :", epoch, "Epsilon spent : ", epsilon)
 
             
    

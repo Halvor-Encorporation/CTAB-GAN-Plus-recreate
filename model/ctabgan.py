@@ -24,13 +24,16 @@ class CTABGAN():
                  general_columns = ["age"],
                  non_categorical_columns = [],
                  integer_columns = ['age', 'fnlwgt','capital-gain', 'capital-loss','hours-per-week'],
-                 problem_type= {"Classification": "income"}):
+                 problem_type= {"Classification": "income"},
+                 dp_constraints = {}
+                 ):
 
         self.__name__ = 'CTABGAN'
               
         self.synthesizer = CTABGANSynthesizer()
         self.raw_df = df
         self.test_ratio = test_ratio
+        self.dp_constraints = dp_constraints
         self.categorical_columns = categorical_columns
         self.log_columns = log_columns
         self.mixed_columns = mixed_columns
@@ -42,11 +45,12 @@ class CTABGAN():
     def fit(self,epochs= 100):
         
         start_time = time.time()
-        self.data_prep = DataPrep(self.raw_df,self.categorical_columns,self.log_columns,self.mixed_columns,self.general_columns,self.non_categorical_columns,self.integer_columns,self.problem_type,self.test_ratio)
+        
         self.data_prep2 = DataPrep2(self.raw_df,self.categorical_columns,self.log_columns)
         self.prepared_data = self.data_prep2.preprocesses_transform(self.raw_df)
 
-        self.synthesizer.fit(train_data=self.prepared_data, 
+        self.synthesizer.fit(train_data=self.prepared_data,
+                    dp_constraints=self.dp_constraints, 
                      categorical=self.categorical_columns, 
                      mixed=self.mixed_columns, 
                      general=self.general_columns, 
