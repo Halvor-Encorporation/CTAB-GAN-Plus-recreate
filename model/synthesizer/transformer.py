@@ -3,6 +3,8 @@ import pandas as pd
 import torch
 from sklearn.mixture import BayesianGaussianMixture
 
+from .GMM_transformer import GMM_transformer
+
 class DataTransformer():
     
     def __init__(self, train_data=pd.DataFrame, categorical_list=[], mixed_dict={}, general_list=[], non_categorical_list=[], n_clusters=10, eps=0.005):
@@ -41,13 +43,23 @@ class DataTransformer():
                     "max": column.max(),
                     "modal": self.mixed_columns[col]
                 })
-            else:
+            elif col in self.general_columns:
                 meta.append({
                     "name": col,
                     "type": "continuous",
                     "min": column.min(),
                     "max": column.max(),
-                })            
+                })
+            else:
+                transformer = GMM_transformer()
+                meta.append({
+                    "name": col,
+                    "type": "continuous",
+                    "min": column.min(),
+                    "max": column.max(),
+                    "transformer": transformer,
+                })  
+
 
         return meta
 
@@ -62,25 +74,32 @@ class DataTransformer():
         self.filter_arr = []
         for id_, info in enumerate(self.meta):
             if info['type'] == "continuous":
-                if id_ not in self.general_columns:
-                  gm = BayesianGaussianMixture(
-                      n_components = self.n_clusters, 
-                      weight_concentration_prior_type='dirichlet_process',
-                      weight_concentration_prior=0.001, 
-                      max_iter=100,n_init=1, random_state=42)
-                  gm.fit(data[:, id_].reshape([-1, 1]))
-                  mode_freq = (pd.Series(gm.predict(data[:, id_].reshape([-1, 1]))).value_counts().keys())
-                  model.append(gm)
-                  old_comp = gm.weights_ > self.eps
-                  comp = []
-                  for i in range(self.n_clusters):
-                      if (i in (mode_freq)) & old_comp[i]:
-                          comp.append(True)
-                      else:
-                          comp.append(False)
-                  self.components.append(comp) 
-                  self.output_info += [(1, 'tanh','no_g'), (np.sum(comp), 'softmax')]
-                  self.output_dim += 1 + np.sum(comp)
+                if info["name"] not in self.general_columns:
+                    transformer = info['transformer']
+                    gm,comp,info,dim = transformer.fit(data[:,id_],self.n_clusters,self.eps)
+                    """gm = BayesianGaussianMixture(
+                        n_components = self.n_clusters, 
+                        weight_concentration_prior_type='dirichlet_process',
+                        weight_concentration_prior=0.001, 
+                        max_iter=100,n_init=1, random_state=42)
+                    gm.fit(data[:, id_].reshape([-1, 1]))
+                    mode_freq = (pd.Series(gm.predict(data[:, id_].reshape([-1, 1]))).value_counts().keys())
+                    model.append(gm)
+                    old_comp = gm.weights_ > self.eps
+                    comp = []
+                    for i in range(self.n_clusters):
+                        if (i in (mode_freq)) & old_comp[i]:
+                            comp.append(True)
+                        else:
+                            comp.append(False)
+                    self.components.append(comp) 
+                    self.output_info += [(1, 'tanh','no_g'), (np.sum(comp), 'softmax')]
+                    self.output_dim += 1 + np.sum(comp)"""
+                    model.append(gm)
+                    self.components.append(comp)
+                    self.output_info += info
+                    self.output_dim += dim
+
                 else:
                   model.append(None)
                   self.components.append(None)
@@ -141,7 +160,7 @@ class DataTransformer():
         for id_, info in enumerate(self.meta):
             current = data[:, id_]
             if info['type'] == "continuous":
-                if id_ not in self.general_columns: 
+                if info["name"] not in self.general_columns: 
                   current = current.reshape([-1, 1])
                   means = self.model[id_].means_.reshape((1, self.n_clusters))
                   stds = np.sqrt(self.model[id_].covariances_).reshape((1, self.n_clusters))
@@ -297,7 +316,7 @@ class DataTransformer():
         st = 0
         for id_, info in enumerate(self.meta):
             if info['type'] == "continuous":
-                if id_ not in self.general_columns:
+                if info["name"] not in self.general_columns:
                   u = data[:, st]
                   v = data[:, st + 1:st + 1 + np.sum(self.components[id_])]
                   order = self.ordering[id_] 
