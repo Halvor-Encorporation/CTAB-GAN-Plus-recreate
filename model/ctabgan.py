@@ -20,13 +20,13 @@ class CTABGAN():
     def __init__(self,
                  df,
                  test_ratio = 0.20,
-                 categorical_columns = [ 'workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race', 'gender', 'native-country', 'income'], 
+                 categorical_columns = [], 
                  log_columns = [],
-                 mixed_columns= {'capital-loss':[0.0],'capital-gain':[0.0]},
-                 general_columns = ["age"],
+                 mixed_columns= {},
+                 general_columns = [],
                  non_categorical_columns = [],
-                 integer_columns = ['age', 'fnlwgt','capital-gain', 'capital-loss','hours-per-week'],
-                 problem_type= {"Classification": "income"},
+                 integer_columns = [],
+                 problem_type= {},
                  dp_constraints = {}
                  ):
 
@@ -48,8 +48,9 @@ class CTABGAN():
         
         start_time = time.time()
         
-        self.data_type_assigner = Data_type_assigner(self.raw_df, self.integer_columns)
-        self.raw_df = self.data_type_assigner.assign(self.raw_df)
+        self.data_type_assigner = Data_type_assigner(self.raw_df, self.integer_columns,self.mixed_columns)
+        
+        #self.raw_df = self.data_type_assigner.assign(self.raw_df)
 
         self.data_prep2 = DataPrep2(self.raw_df,self.categorical_columns,self.log_columns)
         self.prepared_data = self.data_prep2.preprocesses_transform(self.raw_df)
