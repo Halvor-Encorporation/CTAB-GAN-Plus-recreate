@@ -9,6 +9,7 @@ from model.synthesizer.ctabgan_synthesizer import CTABGANSynthesizer
 
 from model.pipeline2.data_type_assigner import Data_type_assigner
 from model.pipeline2.data_preparation import DataPrep as DataPrep2
+from model.pipeline2.null_value_transformer import Null_value_transformer
 
 
 import warnings
@@ -50,7 +51,9 @@ class CTABGAN():
         
         self.data_type_assigner = Data_type_assigner(self.raw_df, self.integer_columns,self.mixed_columns)
         
-        #self.raw_df = self.data_type_assigner.assign(self.raw_df)
+        self.null_value_transformer = Null_value_transformer()
+        self.mixed_columns = self.null_value_transformer.fit(self.raw_df, self.categorical_columns, self.mixed_columns)
+        self.raw_df = self.null_value_transformer.transform(self.raw_df)
 
         self.data_prep2 = DataPrep2(self.raw_df,self.categorical_columns,self.log_columns)
         self.prepared_data = self.data_prep2.preprocesses_transform(self.raw_df)
