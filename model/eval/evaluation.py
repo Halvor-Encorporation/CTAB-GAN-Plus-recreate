@@ -614,3 +614,122 @@ def _calculate_pariwise_distances(real, fake, metric='gower'):
 
     raise ValueError(f"Unknown metric: {metric}. Supported metrics are 'gower' and 'euclidean'.")
 
+
+
+
+import matplotlib.pyplot as plt
+
+def compare_dataframes(df: pd.DataFrame, syn: pd.DataFrame, nominal_values: dict, categorical_columns: list = None):
+    # 100 % ChatGPTs work 
+    """
+    Compare each column in df and syn using:
+    - Histogram if the column has continuous data
+    - Bar chart if the column has categorical data
+
+    Mixed columns are plotted alone; one-type columns (cat or cont only) are plotted two per row.
+
+    Parameters:
+    - df: Original DataFrame
+    - syn: Synthetic DataFrame (same columns)
+    - nominal_values: dict mapping column names to categorical entries (can include np.nan)
+    - categorical_columns: list of columns to treat as fully categorical (optional)
+    """
+    categorical_columns = categorical_columns or []
+    one_part_buffer = []
+
+    def plot_one_part_pair(pair):
+        plt.figure(figsize=(14, 5))
+        for i, (col, cat_vals, cont_vals, is_cat) in enumerate(pair):
+            plt.subplot(1, 2, i + 1)
+            if is_cat:
+                all_categories = set(cat_vals[0].unique()).union(set(cat_vals[1].unique()))
+                orig_counts = cat_vals[0].value_counts().reindex(all_categories, fill_value=0)
+                syn_counts = cat_vals[1].value_counts().reindex(all_categories, fill_value=0)
+                width = 0.35
+                x = np.arange(len(all_categories))
+                plt.bar(x - width/2, orig_counts.values, width=width, label='Original', edgecolor='black')
+                plt.bar(x + width/2, syn_counts.values, width=width, label='Synthetic', edgecolor='black')
+                plt.xticks(ticks=x, labels=all_categories, rotation=45)
+                plt.title(f'{col} (Categorical)')
+                plt.xlabel('Category')
+                plt.ylabel('Count')
+                plt.legend()
+            else:
+                bins = np.histogram_bin_edges(np.concatenate([cont_vals[0], cont_vals[1]]), bins=50)
+                plt.hist(cont_vals[0], bins=bins, alpha=0.6, label='Original', edgecolor='black')
+                plt.hist(cont_vals[1], bins=bins, alpha=0.6, label='Synthetic', edgecolor='black')
+                plt.title(f'{col} (Continuous)')
+                plt.xlabel('Value')
+                plt.ylabel('Frequency')
+                plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    for col in df.columns:
+        original = df[col]
+        synthetic = syn[col]
+
+        if col in categorical_columns:
+            cat_orig = original.fillna('NaN').astype(str)
+            cat_syn = synthetic.fillna('NaN').astype(str)
+            cont_orig = cont_syn = pd.Series(dtype=float)
+        else:
+            mixed_values = nominal_values.get(col, [])
+
+            def split_series(series, mixed_values):
+                is_categorical = series.apply(
+                    lambda x: any((pd.isna(val) and pd.isna(x)) or (str(x) == str(val)) for val in mixed_values)
+                )
+                categorical = series[is_categorical].fillna('NaN')
+                continuous = pd.to_numeric(series[~is_categorical], errors='coerce').dropna().astype(float)
+                return categorical, continuous
+
+            cat_orig, cont_orig = split_series(original, mixed_values)
+            cat_syn, cont_syn = split_series(synthetic, mixed_values)
+
+        has_cont = not cont_orig.empty or not cont_syn.empty
+        has_cat = not cat_orig.empty or not cat_syn.empty
+
+        # Case 1: Mixed → full-row layout
+        if has_cat and has_cont:
+            plt.figure(figsize=(14, 6))
+            plt.subplot(1, 2, 1)
+            bins = np.histogram_bin_edges(np.concatenate([cont_orig, cont_syn]), bins=50)
+            plt.hist(cont_orig, bins=bins, alpha=0.6, label='Original', edgecolor='black')
+            plt.hist(cont_syn, bins=bins, alpha=0.6, label='Synthetic', edgecolor='black')
+            plt.title(f'Histogram (Continuous): {col}')
+            plt.xlabel('Value')
+            plt.ylabel('Frequency')
+            plt.legend()
+
+            plt.subplot(1, 2, 2)
+            all_categories = set(cat_orig.unique()).union(set(cat_syn.unique()))
+            orig_counts = cat_orig.value_counts().reindex(all_categories, fill_value=0)
+            syn_counts = cat_syn.value_counts().reindex(all_categories, fill_value=0)
+            width = 0.35
+            x = np.arange(len(all_categories))
+            plt.bar(x - width/2, orig_counts.values, width=width, label='Original', edgecolor='black')
+            plt.bar(x + width/2, syn_counts.values, width=width, label='Synthetic', edgecolor='black')
+            plt.xticks(ticks=x, labels=all_categories, rotation=45)
+            plt.title(f'Bar Chart (Categorical): {col}')
+            plt.xlabel('Category')
+            plt.ylabel('Count')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        # Case 2: Only categorical or continuous → buffer it for side-by-side plotting
+        elif has_cat:
+            one_part_buffer.append((col, (cat_orig, cat_syn), None, True))
+        elif has_cont:
+            one_part_buffer.append((col, None, (cont_orig, cont_syn), False))
+
+        # Plot in pairs if buffer has two items
+        if len(one_part_buffer) == 2:
+            plot_one_part_pair(one_part_buffer)
+            one_part_buffer = []
+
+    # Final leftover plot if only one item in buffer
+    if len(one_part_buffer) == 1:
+        plot_one_part_pair([one_part_buffer[0]])
+
