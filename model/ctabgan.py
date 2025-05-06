@@ -7,7 +7,9 @@ import time
 from model.pipeline.data_preparation import DataPrep
 from model.synthesizer.ctabgan_synthesizer import CTABGANSynthesizer
 
+from model.pipeline2.data_type_assigner import Data_type_assigner
 from model.pipeline2.data_preparation import DataPrep as DataPrep2
+
 
 import warnings
 
@@ -46,6 +48,9 @@ class CTABGAN():
         
         start_time = time.time()
         
+        self.data_type_assigner = Data_type_assigner(self.raw_df, self.integer_columns)
+        self.raw_df = self.data_type_assigner.assign(self.raw_df)
+
         self.data_prep2 = DataPrep2(self.raw_df,self.categorical_columns,self.log_columns)
         self.prepared_data = self.data_prep2.preprocesses_transform(self.raw_df)
 
@@ -67,5 +72,6 @@ class CTABGAN():
         sample_transformed = pd.DataFrame(sample_transformed, columns=self.prepared_data.columns)
         
         sample = self.data_prep2.preprocesses_inverse_transform(sample_transformed)
+        sample_with_data_types = self.data_type_assigner.assign(sample)
         
-        return sample
+        return sample_with_data_types
