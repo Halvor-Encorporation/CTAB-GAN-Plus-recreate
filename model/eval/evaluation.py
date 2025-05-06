@@ -619,8 +619,15 @@ def _calculate_pariwise_distances(real, fake, metric='gower'):
 
 import matplotlib.pyplot as plt
 
-def compare_dataframes(df: pd.DataFrame, syn: pd.DataFrame, nominal_values: dict, categorical_columns: list = None):
-    # 100 % ChatGPTs work 
+
+def compare_dataframes(
+    df: pd.DataFrame,
+    syn: pd.DataFrame,
+    nominal_values: dict,
+    categorical_columns: list = None,
+    columns: list = None
+):
+    # 100 % ChatGPTs work
     """
     Compare each column in df and syn using:
     - Histogram if the column has continuous data
@@ -633,8 +640,10 @@ def compare_dataframes(df: pd.DataFrame, syn: pd.DataFrame, nominal_values: dict
     - syn: Synthetic DataFrame (same columns)
     - nominal_values: dict mapping column names to categorical entries (can include np.nan)
     - categorical_columns: list of columns to treat as fully categorical (optional)
+    - columns: optional list of column names to include in the plot
     """
     categorical_columns = categorical_columns or []
+    columns_to_plot = columns if columns is not None else df.columns
     one_part_buffer = []
 
     def plot_one_part_pair(pair):
@@ -665,7 +674,7 @@ def compare_dataframes(df: pd.DataFrame, syn: pd.DataFrame, nominal_values: dict
         plt.tight_layout()
         plt.show()
 
-    for col in df.columns:
+    for col in columns_to_plot:
         original = df[col]
         synthetic = syn[col]
 
@@ -732,4 +741,3 @@ def compare_dataframes(df: pd.DataFrame, syn: pd.DataFrame, nominal_values: dict
     # Final leftover plot if only one item in buffer
     if len(one_part_buffer) == 1:
         plot_one_part_pair([one_part_buffer[0]])
-
