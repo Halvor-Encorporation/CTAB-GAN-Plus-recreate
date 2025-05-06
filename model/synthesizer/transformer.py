@@ -307,7 +307,7 @@ class DataTransformer():
                 for idx, val in enumerate(data[:, id_]):
                     if val in info['modal']:
                         category_ = list(map(info['modal'].index, [val]))[0]
-                        final[idx, 0] = mode_vals[category_]
+                        final[idx, 0] = 0 #mode_vals[category_]
                         final[idx, (category_+1)] = 1
                     
                     else:
