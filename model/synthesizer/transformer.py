@@ -76,8 +76,8 @@ class DataTransformer():
                 meta.append({
                     "name": col,
                     "type": "mixed",
-                    "min": column.min(),
-                    "max": column.max(),
+                    #"min": column.min(),
+                    #"max": column.max(),
                     "modal": self.mixed_columns[col]
                 })
             else:
@@ -127,19 +127,20 @@ class DataTransformer():
                   self.output_dim += 1
             
             elif info['type'] == "mixed":
-                
+                """
                 gm1 = BayesianGaussianMixture(
                     n_components = self.n_clusters, 
                     weight_concentration_prior_type='dirichlet_process',
                     weight_concentration_prior=0.001, max_iter=100,
                     n_init=1,random_state=42)
+                """
                 gm2 = BayesianGaussianMixture(
                     n_components = self.n_clusters,
                     weight_concentration_prior_type='dirichlet_process',
                     weight_concentration_prior=0.001, max_iter=100,
                     n_init=1,random_state=42)
                 
-                gm1.fit(data[:, id_].reshape([-1, 1]))
+                #gm1.fit(data[:, id_].reshape([-1, 1]))
                 
                 filter_arr = []
                 for element in data[:, id_]:
@@ -147,11 +148,13 @@ class DataTransformer():
                         filter_arr.append(True)
                     else:
                         filter_arr.append(False)
-               
-                gm2.fit(data[:, id_][filter_arr].reshape([-1, 1]))
-                mode_freq = (pd.Series(gm2.predict(data[:, id_][filter_arr].reshape([-1, 1]))).value_counts().keys())
+                fitlered_data = data[:, id_][filter_arr]
+                info["min"] = fitlered_data.min()
+                info["max"] = fitlered_data.max()
+                gm2.fit(fitlered_data.reshape([-1, 1]))
+                mode_freq = (pd.Series(gm2.predict(fitlered_data.reshape([-1, 1]))).value_counts().keys())
                 self.filter_arr.append(filter_arr)
-                model.append((gm1,gm2))
+                model.append((None,gm2))
                
                 old_comp = gm2.weights_ > self.eps
                   
@@ -240,7 +243,7 @@ class DataTransformer():
                   values.append(current)
 
             elif info['type'] == "mixed":
-                    
+                """
                 means_0 = self.model[id_][0].means_.reshape([-1])
                 stds_0 = np.sqrt(self.model[id_][0].covariances_).reshape([-1])
 
@@ -270,7 +273,7 @@ class DataTransformer():
                 
                 if -9999999 in info["modal"]:
                     mode_vals.append(0)
-                
+                """
                 current = current.reshape([-1, 1])
                 filter_arr = self.filter_arr[mixed_counter]
                 current = current[filter_arr]
@@ -337,7 +340,7 @@ class DataTransformer():
         return np.concatenate(values, axis=1)
 
     def inverse_transform(self, data):
-        data_t = np.zeros([len(data), len(self.meta)])
+        data_t = np.zeros([len(data), len(self.meta)], dtype=object)
         invalid_ids = []
         st = 0
         for id_, info in enumerate(self.meta):
@@ -412,18 +415,20 @@ class DataTransformer():
                 stds = np.sqrt(self.model[id_][1].covariances_).reshape([-1]) 
                 p_argmax = np.argmax(v, axis=1)
 
-                result = np.zeros_like(u)
-
+                result = np.zeros_like(u,dtype=object)
+                continous_values = np.full_like(u, np.nan, dtype=float)
                 for idx in range(len(data)):
                     if p_argmax[idx] < len(info['modal']):
                         argmax_value = p_argmax[idx]
-                        result[idx] = float(list(map(info['modal'].__getitem__, [argmax_value]))[0])
+                        choosen = list(map(info['modal'].__getitem__, [argmax_value]))[0]
+                        result[idx] = choosen
                     else:
                         std_t = stds[(p_argmax[idx]-len(info['modal']))]
                         mean_t = means[(p_argmax[idx]-len(info['modal']))]
                         result[idx] = u[idx] * 4 * std_t + mean_t
+                        continous_values[idx] = result[idx]
                         
-                for idx,val in enumerate(result):
+                for idx,val in enumerate(np.full_like(u, np.nan, dtype=float)):
                      if (val < info["min"]) | (val > info['max']):
                          invalid_ids.append(idx)
 

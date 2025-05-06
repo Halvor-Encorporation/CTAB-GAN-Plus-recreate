@@ -76,6 +76,7 @@ class CTABGAN():
         sample_transformed = pd.DataFrame(sample_transformed, columns=self.prepared_data.columns)
         
         sample = self.data_prep2.preprocesses_inverse_transform(sample_transformed)
+        sample = self.null_value_transformer.inverse_transform(sample)
         sample_with_data_types = self.data_type_assigner.assign(sample)
         
         return sample_with_data_types

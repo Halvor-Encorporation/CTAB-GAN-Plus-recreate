@@ -138,10 +138,11 @@ class Cond(object):
                 continue
             elif item[1] == 'softmax': 
                 ed = st + item[0]
-                tmp = np.sum(data[:, st:ed], axis=0)  
-                tmp_sampling = np.sum(data[:, st:ed], axis=0)     
+                data_cols = np.array(data[:, st:ed],np.float64)
+                tmp = np.sum(data_cols, axis=0)  
                 tmp = np.log(tmp + 1)  
                 tmp = tmp / np.sum(tmp) 
+                tmp_sampling = np.sum(data_cols, axis=0)     
                 tmp_sampling = tmp_sampling / np.sum(tmp_sampling)
                 self.p_sampling.append(tmp_sampling)
                 self.p[self.n_col, :item[0]] = tmp 
